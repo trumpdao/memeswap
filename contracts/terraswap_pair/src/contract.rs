@@ -253,12 +253,12 @@ pub fn provide_liquidity(
             }));
         } else {
             // If the asset is native token, balance is already increased
-            // To calculated properly we should subtract user deposit from the pool
+            // To calculate properly, we should subtract user deposit from the pool
             pool.amount = pool.amount.checked_sub(deposits[i])?;
         }
     }
 
-    // assert slippage tolerance
+    // Assert slippage tolerance
     assert_slippage_tolerance(&slippage_tolerance, &deposits, &pools)?;
 
     let liquidity_token = deps.api.addr_humanize(&pair_info.liquidity_token)?;
@@ -267,14 +267,13 @@ pub fn provide_liquidity(
         // Initial share = collateral amount
         let deposit0: Uint256 = deposits[0].into();
         let deposit1: Uint256 = deposits[1].into();
-        match (Decimal256::from_ratio(deposit0.mul(deposit1), 1u8).sqrt() * Uint256::from(1u8))
-            .try_into()
-        {
+        let k: Uint256 = deposit0.mul(deposit1); // Calculate k = deposit0 * deposit1
+        match (Decimal256::from_ratio(k, 1u8).sqrt() * Uint256::from(1u8)).try_into() {
             Ok(share) => share,
             Err(e) => return Err(ContractError::ConversionOverflowError(e)),
         }
     } else {
-        // min(1, 2)
+        // Min(1, 2)
         // 1. sqrt(deposit_0 * exchange_rate_0_to_1 * deposit_0) * (total_share / sqrt(pool_0 * pool_1))
         // == deposit_0 * total_share / pool_0
         // 2. sqrt(deposit_1 * exchange_rate_1_to_0 * deposit_1) * (total_share / sqrt(pool_1 * pool_1))
@@ -285,12 +284,12 @@ pub fn provide_liquidity(
         )
     };
 
-    // prevent providing free token
+    // Prevent providing free token
     if share.is_zero() {
         return Err(ContractError::InvalidZeroAmount {});
     }
 
-    // mint LP token to sender
+    // Mint LP token to sender
     let receiver = receiver.unwrap_or_else(|| info.sender.to_string());
     messages.push(CosmosMsg::Wasm(WasmMsg::Execute {
         contract_addr: deps
@@ -312,6 +311,7 @@ pub fn provide_liquidity(
         ("share", &share.to_string()),
     ]))
 }
+
 
 pub fn withdraw_liquidity(
     deps: DepsMut,
